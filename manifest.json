@@ -5,9 +5,12 @@
     "description": "PWA Test Application",
     "start_url": "/",
     "display": "standalone",
+    "display_override": ["standalone", "fullscreen"],
     "background_color": "#ffffff",
     "theme_color": "#4a90e2",
-    "orientation": "any",
+    "orientation": "portrait",
+    "categories": ["utilities"],
+    "prefer_related_applications": false,
     "icons": [
         {
             "src": "/icon-192.png",
