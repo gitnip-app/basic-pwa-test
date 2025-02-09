@@ -198,9 +198,19 @@
                    document.referrer.includes('android-app://');
         };
 
+        // Check if app was previously installed
+        const wasInstalled = () => {
+            return localStorage.getItem('pwaInstalled') === 'true';
+        };
+
+        // Mark app as installed
+        const markAsInstalled = () => {
+            localStorage.setItem('pwaInstalled', 'true');
+        };
+
         // Check if installable
         const isInstallable = () => {
-            if (isPWA()) return false;
+            if (isPWA() || wasInstalled()) return false;
             return 'serviceWorker' in navigator &&
                    window.matchMedia('(display-mode: browser)').matches;
         };
@@ -224,8 +234,8 @@
 
         // Show install prompt after 2 seconds if appropriate
         const showPromptWithDelay = () => {
-            if (isPWA()) {
-                console.log('Running as installed PWA, not showing prompt');
+            if (isPWA() || wasInstalled()) {
+                console.log('App is installed or running as PWA, not showing prompt');
                 return;
             }
             
@@ -252,6 +262,13 @@
                 deferredPrompt = null;
                 updateStatus(outcome === 'accepted' ? 'Installation started' : 'Installation declined');
             }
+        };
+
+        // Handle iOS installation completion
+        const handleIOSInstallComplete = () => {
+            markAsInstalled();
+            pwaPrompt.classList.remove('show');
+            updateStatus('App was installed successfully');
         };
 
         // Update status message
@@ -295,13 +312,17 @@
             updateStatus('App was installed successfully');
             pwaPrompt.classList.remove('show');
             installButton.style.display = 'none';
+            markAsInstalled();
         });
 
         // Check if already installed
         if (isPWA()) {
-            console.log('App is already installed');
-            updateStatus('App is already installed');
-            installButton.style.display = 'none';
+            console.log('Running as installed PWA');
+            markAsInstalled();
+            updateStatus('App is running as installed PWA');
+        } else if (wasInstalled()) {
+            console.log('App was previously installed');
+            updateStatus('App was previously installed');
         }
 
         // Button click handlers
@@ -309,6 +330,9 @@
         installButton.addEventListener('click', handleInstall);
         
         promptDismiss.addEventListener('click', () => {
+            if (isIOS()) {
+                handleIOSInstallComplete(); // Mark as installed when user acknowledges iOS instructions
+            }
             pwaPrompt.classList.remove('show');
             localStorage.setItem('pwaPromptDismissed', 'true');
         });
