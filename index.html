@@ -4,44 +4,43 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Basic PWA Test</title>
-    
-    <!-- PWA meta tags -->
-    <meta name="theme-color" content="#4a90e2">
-    <meta name="description" content="A basic Progressive Web App test">
-    <meta name="mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black">
-    <meta name="apple-mobile-web-app-title" content="Basic PWA">
-    
-    <!-- PWA assets -->
     <link rel="manifest" href="/manifest.json">
+    <meta name="theme-color" content="#4a90e2">
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
     <link rel="apple-touch-icon" href="/icon-192.png">
-    
     <style>
         body {
-            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
             padding: 20px;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
             text-align: center;
-            background-color: #ffffff;
         }
-        h1 { 
-            margin-bottom: 10px;
-            color: #4a90e2;
+        #installButton {
+            display: none;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        #installButton:hover {
+            background: #357abd;
         }
     </style>
 </head>
 <body>
     <h1>Basic PWA Test</h1>
     <p>This is a minimal PWA implementation.</p>
-    
+    <button id="installButton">Install App</button>
+
     <script>
+        let deferredPrompt;
+        const installButton = document.getElementById('installButton');
+
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
@@ -49,19 +48,40 @@
                         scope: '/'
                     });
                     console.log('ServiceWorker registration successful with scope:', registration.scope);
-                    
-                    // Check if the app can be installed
-                    window.addEventListener('beforeinstallprompt', (e) => {
-                        // Prevent Chrome 67 and earlier from automatically showing the prompt
-                        e.preventDefault();
-                        // Show the install prompt
-                        e.prompt();
-                    });
                 } catch (error) {
                     console.error('ServiceWorker registration failed:', error);
                 }
             });
         }
+
+        // Handle installation
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPrompt = e;
+            // Show the install button
+            installButton.style.display = 'block';
+        });
+
+        installButton.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            // Show the install prompt
+            deferredPrompt.prompt();
+            // Wait for the user to respond to the prompt
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response to the install prompt: ${outcome}`);
+            // Clear the deferredPrompt variable
+            deferredPrompt = null;
+            // Hide the install button
+            installButton.style.display = 'none';
+        });
+
+        // Handle installed
+        window.addEventListener('appinstalled', () => {
+            console.log('PWA was installed');
+            installButton.style.display = 'none';
+        });
     </script>
 </body>
 </html>
