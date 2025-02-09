@@ -191,16 +191,18 @@
 
         // Check if running as PWA
         const isPWA = () => {
+            if (isIOS()) {
+                return window.navigator.standalone === true;
+            }
             return window.matchMedia('(display-mode: standalone)').matches ||
-                   window.navigator.standalone ||
                    document.referrer.includes('android-app://');
         };
 
         // Check if installable
         const isInstallable = () => {
-            return ('serviceWorker' in navigator &&
-                   window.matchMedia('(display-mode: browser)').matches &&
-                   !isPWA());
+            if (isPWA()) return false;
+            return 'serviceWorker' in navigator &&
+                   window.matchMedia('(display-mode: browser)').matches;
         };
 
         // Show iOS-specific instructions
@@ -222,6 +224,11 @@
 
         // Show install prompt after 2 seconds if appropriate
         const showPromptWithDelay = () => {
+            if (isPWA()) {
+                console.log('Running as installed PWA, not showing prompt');
+                return;
+            }
+            
             if (!hasUserDismissed()) {
                 if (isIOS()) {
                     setTimeout(() => {
