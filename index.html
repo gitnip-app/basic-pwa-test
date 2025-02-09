@@ -8,8 +8,6 @@
     <!-- PWA Meta Tags -->
     <meta name="theme-color" content="#4a90e2">
     <meta name="mobile-web-app-capable" content="yes">
-    
-    <!-- iOS Meta Tags -->
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="PWA Test">
@@ -18,22 +16,7 @@
     <!-- PWA Links -->
     <link rel="manifest" href="/manifest.json">
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
-    
-    <!-- iOS Icons -->
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon-180.png">
-    <link rel="apple-touch-icon" sizes="167x167" href="/apple-touch-icon-167.png">
-    <link rel="apple-touch-icon" sizes="152x152" href="/apple-touch-icon-152.png">
-    <link rel="apple-touch-icon" sizes="120x120" href="/apple-touch-icon-120.png">
-    
-    <!-- iOS Splash Screens -->
-    <link rel="apple-touch-startup-image" href="/apple-splash-2048x2732.png" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2)">
-    <link rel="apple-touch-startup-image" href="/apple-splash-1668x2388.png" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2)">
-    <link rel="apple-touch-startup-image" href="/apple-splash-1536x2048.png" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2)">
-    <link rel="apple-touch-startup-image" href="/apple-splash-1290x2796.png" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3)">
-    <link rel="apple-touch-startup-image" href="/apple-splash-1179x2556.png" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3)">
-    <link rel="apple-touch-startup-image" href="/apple-splash-1170x2532.png" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3)">
-    <link rel="apple-touch-startup-image" href="/apple-splash-1284x2778.png" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3)">
-    <link rel="apple-touch-startup-image" href="/apple-splash-1125x2436.png" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3)">
     
     <style>
         /* CSS Reset */
@@ -58,11 +41,7 @@
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
             background-color: #f5f5f5;
             color: #333;
-            
-            /* Ensure content is within safe area on notched phones */
             padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-            
-            /* Use flex for centering */
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -78,19 +57,6 @@
             width: calc(100% - 32px);
             max-width: 400px;
             text-align: center;
-            animation: slideUp 0.5s ease-out;
-            transform: translateZ(0);
-        }
-        
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
         }
         
         h1 {
@@ -101,14 +67,13 @@
         }
         
         p {
-            margin-bottom: 24px;
+            margin-bottom: 20px;
             line-height: 1.5;
             color: #666;
-            font-size: 16px;
         }
         
         #installButton {
-            display: block;
+            display: none;
             background: linear-gradient(135deg, #4a90e2 0%, #357abd 100%);
             color: white;
             border: none;
@@ -118,56 +83,72 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.3s ease;
-            margin: 24px auto;
+            margin: 20px auto;
             width: 100%;
             max-width: 300px;
-            box-shadow: 0 4px 12px rgba(74, 144, 226, 0.3);
-            position: relative;
-            overflow: hidden;
         }
         
-        #installButton::after {
-            content: '';
-            position: absolute;
-            top: 0;
+        #pwaPrompt {
+            position: fixed;
+            bottom: 0;
             left: 0;
             right: 0;
-            bottom: 0;
-            background: linear-gradient(rgba(255,255,255,0.1), rgba(255,255,255,0));
-            opacity: 0;
-            transition: opacity 0.3s;
+            background: white;
+            padding: 16px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+            transform: translateY(100%);
+            transition: transform 0.3s ease;
+            z-index: 1000;
         }
         
-        #installButton:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 16px rgba(74, 144, 226, 0.4);
-        }
-        
-        #installButton:hover::after {
-            opacity: 1;
-        }
-        
-        #installButton:active {
+        #pwaPrompt.show {
             transform: translateY(0);
-            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.3);
+        }
+        
+        .prompt-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        }
+        
+        .prompt-text {
+            flex: 1;
+            margin-right: 16px;
+        }
+        
+        .prompt-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .prompt-buttons button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        #promptInstall {
+            background: #4a90e2;
+            color: white;
+            border: none;
+        }
+        
+        #promptDismiss {
+            background: transparent;
+            border: 1px solid #ccc;
+            color: #666;
         }
         
         #installStatus {
-            margin-top: 16px;
+            margin-top: 12px;
             color: #666;
             font-size: 14px;
-            font-weight: 500;
-            opacity: 0.8;
-        }
-        
-        /* Handle notched phones */
-        @supports(padding: max(0px)) {
-            body {
-                padding-left: max(16px, env(safe-area-inset-left));
-                padding-right: max(16px, env(safe-area-inset-right));
-                padding-top: max(16px, env(safe-area-inset-top));
-                padding-bottom: max(16px, env(safe-area-inset-bottom));
-            }
         }
     </style>
 </head>
@@ -179,62 +160,67 @@
         <p id="installStatus">Checking installation status...</p>
     </div>
 
+    <!-- PWA Install Prompt -->
+    <div id="pwaPrompt">
+        <div class="prompt-content">
+            <div class="prompt-text">
+                <strong>Install this app</strong>
+                <p>Install for a better experience with offline access</p>
+            </div>
+            <div class="prompt-buttons">
+                <button id="promptInstall">Install</button>
+                <button id="promptDismiss">Not now</button>
+            </div>
+        </div>
+    </div>
+
     <script>
-        // Try to go fullscreen when in standalone mode
-        function tryFullscreen() {
-            if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
-                document.documentElement.requestFullscreen();
-            }
-        }
-
-        // Check if we're in standalone mode
-        function isStandalone() {
-            return window.matchMedia('(display-mode: standalone)').matches ||
-                   window.matchMedia('(display-mode: fullscreen)').matches ||
-                   window.navigator.standalone ||
-                   document.referrer.includes('android-app://') ||
-                   window.location.search.includes('standalone=true');
-        }
-
-        // Handle standalone mode
-        if (isStandalone()) {
-            console.log('Running in standalone mode');
-            document.documentElement.style.backgroundColor = '#ffffff';
-            document.body.style.backgroundColor = '#ffffff';
-            
-            // Try to go fullscreen on first interaction
-            document.addEventListener('click', function firstClick() {
-                tryFullscreen();
-                document.removeEventListener('click', firstClick);
-            }, { once: true });
-        }
-
-        // Prevent scrolling and touch events
-        document.body.addEventListener('touchmove', function(e) {
-            if (isStandalone()) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        document.body.addEventListener('touchstart', function(e) {
-            if (isStandalone()) {
-                e.preventDefault();
-            }
-        }, { passive: false });
-
-        // Prevent scrolling
-        document.body.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-        }, { passive: false });
-        
-        let deferredPrompt;
+        // PWA Detection and Installation
+        const pwaPrompt = document.getElementById('pwaPrompt');
+        const promptInstall = document.getElementById('promptInstall');
+        const promptDismiss = document.getElementById('promptDismiss');
         const installButton = document.getElementById('installButton');
         const installStatus = document.getElementById('installStatus');
+        let deferredPrompt;
 
-        // Log initial state
-        console.log('PWA Script Starting...');
-        console.log('Service Worker supported:', 'serviceWorker' in navigator);
-        console.log('Display Mode:', window.matchMedia('(display-mode: standalone)').matches ? 'standalone' : 'browser');
+        // Check if running as PWA
+        const isPWA = () => {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.navigator.standalone ||
+                   document.referrer.includes('android-app://');
+        };
+
+        // Check if installable
+        const isInstallable = () => {
+            return 'serviceWorker' in navigator &&
+                   window.matchMedia('(display-mode: browser)').matches &&
+                   !isPWA();
+        };
+
+        // Check if user has previously dismissed
+        const hasUserDismissed = () => {
+            return localStorage.getItem('pwaPromptDismissed') === 'true';
+        };
+
+        // Show install prompt after 2 seconds if appropriate
+        const showPromptWithDelay = () => {
+            if (isInstallable() && !hasUserDismissed() && deferredPrompt) {
+                setTimeout(() => {
+                    pwaPrompt.classList.add('show');
+                }, 2000);
+            }
+        };
+
+        // Handle installation
+        const handleInstall = async () => {
+            if (deferredPrompt) {
+                pwaPrompt.classList.remove('show');
+                deferredPrompt.prompt();
+                const { outcome } = await deferredPrompt.userChoice;
+                deferredPrompt = null;
+                updateStatus(outcome === 'accepted' ? 'Installation started' : 'Installation declined');
+            }
+        };
 
         // Update status message
         function updateStatus(message) {
@@ -242,6 +228,7 @@
             installStatus.textContent = message;
         }
 
+        // Event Listeners
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', async () => {
                 try {
@@ -250,6 +237,7 @@
                     });
                     console.log('ServiceWorker registration successful with scope:', registration.scope);
                     updateStatus('Service Worker registered successfully');
+                    showPromptWithDelay();
                 } catch (error) {
                     console.error('ServiceWorker registration failed:', error);
                     updateStatus('Service Worker registration failed');
@@ -260,37 +248,38 @@
             updateStatus('Service Workers not supported on this browser');
         }
 
-        // Handle installation
+        // Installation events
         window.addEventListener('beforeinstallprompt', (e) => {
             console.log('beforeinstallprompt event fired');
             e.preventDefault();
             deferredPrompt = e;
+            installButton.style.display = 'block';
             updateStatus('App is ready to install');
-        });
-
-        installButton.addEventListener('click', async () => {
-            console.log('Install button clicked');
-            if (!deferredPrompt) {
-                console.log('No deferred prompt available');
-                return;
-            }
-            deferredPrompt.prompt();
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response to the install prompt: ${outcome}`);
-            deferredPrompt = null;
-            updateStatus(outcome === 'accepted' ? 'Installation started' : 'Installation declined');
+            showPromptWithDelay();
         });
 
         window.addEventListener('appinstalled', (event) => {
             console.log('PWA was installed');
             updateStatus('App was installed successfully');
+            pwaPrompt.classList.remove('show');
+            installButton.style.display = 'none';
         });
 
         // Check if already installed
-        if (window.matchMedia('(display-mode: standalone)').matches) {
+        if (isPWA()) {
             console.log('App is already installed');
             updateStatus('App is already installed');
+            installButton.style.display = 'none';
         }
+
+        // Button click handlers
+        promptInstall.addEventListener('click', handleInstall);
+        installButton.addEventListener('click', handleInstall);
+        
+        promptDismiss.addEventListener('click', () => {
+            pwaPrompt.classList.remove('show');
+            localStorage.setItem('pwaPromptDismissed', 'true');
+        });
     </script>
 </body>
 </html>
