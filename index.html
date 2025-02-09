@@ -124,6 +124,48 @@
     </div>
 
     <script>
+        // Try to go fullscreen when in standalone mode
+        function tryFullscreen() {
+            if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            }
+        }
+
+        // Check if we're in standalone mode
+        function isStandalone() {
+            return window.matchMedia('(display-mode: standalone)').matches ||
+                   window.matchMedia('(display-mode: fullscreen)').matches ||
+                   window.navigator.standalone ||
+                   document.referrer.includes('android-app://') ||
+                   window.location.search.includes('standalone=true');
+        }
+
+        // Handle standalone mode
+        if (isStandalone()) {
+            console.log('Running in standalone mode');
+            document.documentElement.style.backgroundColor = '#ffffff';
+            document.body.style.backgroundColor = '#ffffff';
+            
+            // Try to go fullscreen on first interaction
+            document.addEventListener('click', function firstClick() {
+                tryFullscreen();
+                document.removeEventListener('click', firstClick);
+            }, { once: true });
+        }
+
+        // Prevent scrolling and touch events
+        document.body.addEventListener('touchmove', function(e) {
+            if (isStandalone()) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        document.body.addEventListener('touchstart', function(e) {
+            if (isStandalone()) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
         // Prevent scrolling
         document.body.addEventListener('touchmove', function(e) {
             e.preventDefault();
