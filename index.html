@@ -129,21 +129,16 @@
         // Debug logging
         console.log('PWA Debug: Variables initialized');
 
-        // Check installation status
-        async function checkInstallationStatus() {
-            if ('getInstalledRelatedApps' in navigator) {
-                try {
+        // Check if app is installed using getInstalledRelatedApps()
+        async function checkInstalledStatus() {
+            try {
+                if ('getInstalledRelatedApps' in navigator) {
                     const relatedApps = await navigator.getInstalledRelatedApps();
-                    console.log('PWA Debug: Installed related apps:', relatedApps);
-                    if (relatedApps.length > 0) {
-                        console.log('PWA Debug: App is already installed');
-                        status.textContent = 'App is already installed';
-                        installButton.style.display = 'none';
-                        return true;
-                    }
-                } catch (error) {
-                    console.error('PWA Debug: Error checking installed apps:', error);
+                    console.log('PWA Debug: Checking installed apps:', relatedApps);
+                    return relatedApps.length > 0;
                 }
+            } catch (error) {
+                console.error('PWA Debug: Error checking installed apps:', error);
             }
             return false;
         }
@@ -159,6 +154,71 @@
                 'iPod'
             ].includes(navigator.platform)
             || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        }
+
+        // Check if running as installed PWA
+        async function checkIfInstalled() {
+            // For iOS
+            if (isIOS()) {
+                // First check if running in standalone mode
+                if (window.navigator.standalone === true) {
+                    console.log('PWA Debug: Running as installed app on iOS');
+                    status.textContent = 'Running as installed app';
+                    installButton.style.display = 'none';
+                    document.getElementById('iosInstallInstructions').style.display = 'none';
+                    return true;
+                }
+
+                // Then check if it's installed using manifest id
+                const isAppInstalled = await checkInstalledStatus();
+                if (isAppInstalled) {
+                    console.log('PWA Debug: App is installed on iOS');
+                    status.textContent = 'Already installed on your device';
+                    installButton.style.display = 'none';
+                    document.getElementById('iosInstallInstructions').style.display = 'none';
+                    return true;
+                }
+
+                // Finally check if we're in Safari and the app is in standalone mode
+                if (navigator.userAgent.includes('Safari/') && !navigator.userAgent.includes('Chrome/')) {
+                    try {
+                        // Try to access the standalone PWA window
+                        const standalone = window.matchMedia('(display-mode: standalone)').matches;
+                        if (standalone) {
+                            console.log('PWA Debug: Detected standalone mode in Safari');
+                            status.textContent = 'Already installed on your device';
+                            installButton.style.display = 'none';
+                            document.getElementById('iosInstallInstructions').style.display = 'none';
+                            return true;
+                        }
+                    } catch (e) {
+                        console.log('PWA Debug: Error checking standalone mode:', e);
+                    }
+                }
+                return false;
+            }
+            
+            // For other platforms
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+            if (isStandalone) {
+                console.log('PWA Debug: Running as installed app');
+                status.textContent = 'Running as installed app';
+                installButton.style.display = 'none';
+                document.getElementById('iosInstallInstructions').style.display = 'none';
+                return true;
+            }
+
+            // Check if installed using manifest
+            const isAppInstalled = await checkInstalledStatus();
+            if (isAppInstalled) {
+                console.log('PWA Debug: App is installed');
+                status.textContent = 'Already installed on your device';
+                installButton.style.display = 'none';
+                document.getElementById('iosInstallInstructions').style.display = 'none';
+                return true;
+            }
+
+            return false;
         }
 
         // Show appropriate installation UI
@@ -179,68 +239,31 @@
             }
         }
 
-        // Check if running as installed PWA
-        function checkIfInstalled() {
-            // For iOS
-            if (isIOS()) {
-                // navigator.standalone is the iOS way to check if running as PWA
-                if (window.navigator.standalone === true) {
-                    console.log('PWA Debug: Running as installed app on iOS');
-                    status.textContent = 'Running as installed app';
-                    installButton.style.display = 'none';
-                    document.getElementById('iosInstallInstructions').style.display = 'none';
-                    return true;
-                }
-                
-                // Try to detect if installed by checking localStorage
-                const isInstalled = localStorage.getItem('pwa-installed');
-                if (isInstalled === 'true') {
-                    console.log('PWA Debug: Previously installed on iOS');
-                    status.textContent = 'Already installed on your device';
-                    installButton.style.display = 'none';
-                    document.getElementById('iosInstallInstructions').style.display = 'none';
-                    return true;
-                }
-                return false;
-            }
-            
-            // For other platforms
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-            if (isStandalone) {
-                console.log('PWA Debug: Running as installed app');
-                status.textContent = 'Running as installed app';
-                installButton.style.display = 'none';
-                document.getElementById('iosInstallInstructions').style.display = 'none';
-                return true;
-            }
-            return false;
-        }
-
         // Initialize installation UI
         async function initializeInstallUI() {
-            if (!checkIfInstalled()) {
+            const installed = await checkIfInstalled();
+            if (!installed) {
                 showInstallUI();
             }
         }
 
         // When app is installed
-        window.addEventListener('appinstalled', (event) => {
+        window.addEventListener('appinstalled', async (event) => {
             console.log('PWA Debug: App was installed');
             status.textContent = 'App was installed successfully';
             installButton.style.display = 'none';
             document.getElementById('iosInstallInstructions').style.display = 'none';
-            
-            // Mark as installed in localStorage for iOS
-            if (isIOS()) {
-                localStorage.setItem('pwa-installed', 'true');
-            }
         });
 
-        // For iOS, we need to detect when the page is loaded from home screen
-        window.addEventListener('load', () => {
-            if (isIOS() && window.navigator.standalone === true) {
-                console.log('PWA Debug: Loaded from iOS home screen');
-                localStorage.setItem('pwa-installed', 'true');
+        // For iOS, detect when loaded from home screen
+        window.addEventListener('load', async () => {
+            if (isIOS()) {
+                await initializeInstallUI();
+                
+                // Re-check installation status periodically
+                setInterval(async () => {
+                    await checkIfInstalled();
+                }, 2000); // Check every 2 seconds
             }
         });
 
@@ -272,7 +295,7 @@
             // Save the event for later
             deferredPrompt = e;
             // Show install button only if not already installed
-            checkInstallationStatus().then(isInstalled => {
+            checkIfInstalled().then(isInstalled => {
                 if (!isInstalled) {
                     installButton.style.display = 'block';
                     status.textContent = 'App can be installed';
