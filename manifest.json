@@ -3,7 +3,7 @@
     "name": "Basic PWA Test",
     "short_name": "PWA Test",
     "description": "A basic Progressive Web App test",
-    "start_url": "/?standalone=true",
+    "start_url": "/?source=pwa&standalone=true",
     "scope": "/",
     "display": "standalone",
     "display_override": ["window-controls-overlay", "fullscreen", "standalone"],

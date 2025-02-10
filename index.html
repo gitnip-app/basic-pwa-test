@@ -207,7 +207,7 @@
                     // Look for our PWA in the list of installed apps
                     const isInstalled = relatedApps.some(app => 
                         app.platform === 'webapp' && 
-                        app.url.includes('dazzling-tartufo-4d55f7.netlify.app/manifest.json')
+                        app.url.includes(window.location.hostname)
                     );
                     
                     if (isInstalled) {
@@ -232,21 +232,75 @@
                 status.textContent = 'Running as installed app';
                 installButton.style.display = 'none';
                 document.getElementById('iosInstallInstructions').style.display = 'none';
+                
+                // Mark as installed in localStorage
+                localStorage.setItem('pwaInstalled', 'true');
                 return true;
             }
 
-            // Then check if installed using getInstalledRelatedApps
-            const isInstalled = await checkInstalledStatus();
-            if (isInstalled) {
-                console.log('PWA Debug: App is installed');
+            // Check URL parameters for PWA source
+            const urlParams = new URLSearchParams(window.location.search);
+            if (urlParams.get('source') === 'pwa') {
+                console.log('PWA Debug: Launched from home screen');
+                localStorage.setItem('pwaInstalled', 'true');
+                return true;
+            }
+
+            // Check if previously installed
+            if (localStorage.getItem('pwaInstalled') === 'true') {
+                console.log('PWA Debug: Found in localStorage as installed');
                 status.textContent = 'Already installed on your device';
                 installButton.style.display = 'none';
                 document.getElementById('iosInstallInstructions').style.display = 'none';
                 return true;
             }
 
+            // Check if installed using getInstalledRelatedApps (for supported browsers)
+            if ('getInstalledRelatedApps' in navigator) {
+                try {
+                    const relatedApps = await navigator.getInstalledRelatedApps();
+                    console.log('PWA Debug: Checking installed apps:', relatedApps);
+                    const isInstalled = relatedApps.some(app => 
+                        app.platform === 'webapp' && 
+                        app.url.includes(window.location.hostname)
+                    );
+                    if (isInstalled) {
+                        console.log('PWA Debug: Found via getInstalledRelatedApps');
+                        localStorage.setItem('pwaInstalled', 'true');
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('PWA Debug: Error checking installed apps:', error);
+                }
+            }
+
             return false;
         }
+
+        // Initialize installation UI
+        async function initializeInstallUI() {
+            const installed = await checkIfInstalled();
+            if (!installed) {
+                showInstallUI();
+            }
+        }
+
+        // When app is installed
+        window.addEventListener('appinstalled', async (event) => {
+            console.log('PWA Debug: App was installed');
+            localStorage.setItem('pwaInstalled', 'true');
+            status.textContent = 'App was installed successfully';
+            installButton.style.display = 'none';
+            document.getElementById('iosInstallInstructions').style.display = 'none';
+        });
+
+        // Listen for display mode changes
+        window.matchMedia('(display-mode: standalone)').addEventListener('change', (evt) => {
+            if (evt.matches) {
+                console.log('PWA Debug: Display mode changed to standalone');
+                localStorage.setItem('pwaInstalled', 'true');
+            }
+        });
 
         // Dismiss instructions and remember the choice
         function dismissInstructions() {
@@ -281,22 +335,6 @@
                 }
             }
         }
-
-        // Initialize installation UI
-        async function initializeInstallUI() {
-            const installed = await checkIfInstalled();
-            if (!installed) {
-                showInstallUI();
-            }
-        }
-
-        // When app is installed
-        window.addEventListener('appinstalled', async (event) => {
-            console.log('PWA Debug: App was installed');
-            status.textContent = 'App was installed successfully';
-            installButton.style.display = 'none';
-            document.getElementById('iosInstallInstructions').style.display = 'none';
-        });
 
         // Detect iOS
         function isIOS() {
