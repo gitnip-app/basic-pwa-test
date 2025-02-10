@@ -1,11 +1,11 @@
 {
     "id": "pwa-test",
-    "name": "PWA Test",
-    "short_name": "PWA",
-    "description": "PWA Test Application",
+    "name": "Basic PWA Test",
+    "short_name": "PWA Test",
+    "description": "A basic PWA test implementation",
     "start_url": "/?standalone=true",
     "scope": "/",
-    "display": "fullscreen",
+    "display": "standalone",
     "display_override": ["window-controls-overlay", "fullscreen", "standalone"],
     "background_color": "#ffffff",
     "theme_color": "#4a90e2",
@@ -45,6 +45,12 @@
             "sizes": "720x1280",
             "type": "image/png",
             "form_factor": "narrow"
+        }
+    ],
+    "related_applications": [
+        {
+            "platform": "webapp",
+            "url": "https://dazzling-tartufo-4d55f7.netlify.app/manifest.json"
         }
     ]
 }
