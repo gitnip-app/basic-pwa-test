@@ -47,6 +47,22 @@
             margin-top: 20px;
             color: #666;
         }
+
+        #installButton {
+            display: none;
+            background: #4a90e2;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+        }
+
+        #installButton:hover {
+            background: #357abd;
+        }
     </style>
 </head>
 <body>
@@ -54,10 +70,13 @@
         <h1>Basic PWA Test</h1>
         <p>This is a minimal PWA implementation.</p>
         <p id="status">Checking status...</p>
+        <button id="installButton">Install App</button>
     </div>
 
     <script>
         const status = document.getElementById('status');
+        const installButton = document.getElementById('installButton');
+        let deferredPrompt;
 
         // Register service worker
         if ('serviceWorker' in navigator) {
@@ -73,18 +92,55 @@
             });
         }
 
-        // Let Chrome handle the installation prompt
+        // Listen for beforeinstallprompt event
         window.addEventListener('beforeinstallprompt', (e) => {
-            // Chrome will show its native install prompt after 2 seconds
-            console.log('App can be installed');
+            // Prevent Chrome's automatic mini-infobar
+            e.preventDefault();
+            // Save the event for later
+            deferredPrompt = e;
+            // Show install button
+            installButton.style.display = 'block';
             status.textContent = 'App can be installed';
+        });
+
+        // Handle install button click
+        installButton.addEventListener('click', async () => {
+            if (!deferredPrompt) return;
+            
+            // Hide install button
+            installButton.style.display = 'none';
+            
+            // Show install prompt
+            deferredPrompt.prompt();
+            
+            // Wait for user choice
+            const { outcome } = await deferredPrompt.userChoice;
+            console.log(`User response: ${outcome}`);
+            
+            if (outcome === 'accepted') {
+                status.textContent = 'Thank you for installing!';
+            } else {
+                status.textContent = 'App ready to install when you are';
+                installButton.style.display = 'block';
+            }
+            
+            // Clear the deferredPrompt
+            deferredPrompt = null;
         });
 
         // When app is installed
         window.addEventListener('appinstalled', (event) => {
             console.log('App was installed');
             status.textContent = 'App was installed successfully';
+            installButton.style.display = 'none';
         });
+
+        // Check if already running as installed PWA
+        if (window.matchMedia('(display-mode: standalone)').matches || 
+            window.navigator.standalone === true) {
+            status.textContent = 'Running as installed app';
+            installButton.style.display = 'none';
+        }
     </script>
 </body>
 </html>
