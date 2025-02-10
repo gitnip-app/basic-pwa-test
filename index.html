@@ -129,6 +129,61 @@
         // Debug logging
         console.log('PWA Debug: Variables initialized');
 
+        // IndexedDB setup
+        const dbName = 'PWAInstallDB';
+        const storeName = 'installState';
+        const installKey = 'isInstalled';
+
+        // Open IndexedDB
+        function openDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open(dbName, 1);
+                
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => resolve(request.result);
+                
+                request.onupgradeneeded = (event) => {
+                    const db = event.target.result;
+                    if (!db.objectStoreNames.contains(storeName)) {
+                        db.createObjectStore(storeName);
+                    }
+                };
+            });
+        }
+
+        // Set installation state
+        async function setInstallState(installed) {
+            try {
+                const db = await openDB();
+                const tx = db.transaction(storeName, 'readwrite');
+                const store = tx.objectStore(storeName);
+                await new Promise((resolve, reject) => {
+                    const request = store.put(installed, installKey);
+                    request.onsuccess = () => resolve();
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('PWA Debug: Error setting install state:', error);
+            }
+        }
+
+        // Get installation state
+        async function getInstallState() {
+            try {
+                const db = await openDB();
+                const tx = db.transaction(storeName, 'readonly');
+                const store = tx.objectStore(storeName);
+                return new Promise((resolve, reject) => {
+                    const request = store.get(installKey);
+                    request.onsuccess = () => resolve(request.result);
+                    request.onerror = () => reject(request.error);
+                });
+            } catch (error) {
+                console.error('PWA Debug: Error getting install state:', error);
+                return false;
+            }
+        }
+
         // Check if app is installed using getInstalledRelatedApps()
         async function checkInstalledStatus() {
             try {
@@ -163,37 +218,22 @@
                 // First check if running in standalone mode
                 if (window.navigator.standalone === true) {
                     console.log('PWA Debug: Running as installed app on iOS');
+                    // Set install state when running from home screen
+                    await setInstallState(true);
                     status.textContent = 'Running as installed app';
                     installButton.style.display = 'none';
                     document.getElementById('iosInstallInstructions').style.display = 'none';
                     return true;
                 }
 
-                // Then check if it's installed using manifest id
-                const isAppInstalled = await checkInstalledStatus();
-                if (isAppInstalled) {
-                    console.log('PWA Debug: App is installed on iOS');
+                // Check if previously installed using IndexedDB
+                const isInstalled = await getInstallState();
+                if (isInstalled) {
+                    console.log('PWA Debug: Found installation record in IndexedDB');
                     status.textContent = 'Already installed on your device';
                     installButton.style.display = 'none';
                     document.getElementById('iosInstallInstructions').style.display = 'none';
                     return true;
-                }
-
-                // Finally check if we're in Safari and the app is in standalone mode
-                if (navigator.userAgent.includes('Safari/') && !navigator.userAgent.includes('Chrome/')) {
-                    try {
-                        // Try to access the standalone PWA window
-                        const standalone = window.matchMedia('(display-mode: standalone)').matches;
-                        if (standalone) {
-                            console.log('PWA Debug: Detected standalone mode in Safari');
-                            status.textContent = 'Already installed on your device';
-                            installButton.style.display = 'none';
-                            document.getElementById('iosInstallInstructions').style.display = 'none';
-                            return true;
-                        }
-                    } catch (e) {
-                        console.log('PWA Debug: Error checking standalone mode:', e);
-                    }
                 }
                 return false;
             }
@@ -202,7 +242,18 @@
             const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
             if (isStandalone) {
                 console.log('PWA Debug: Running as installed app');
+                await setInstallState(true);
                 status.textContent = 'Running as installed app';
+                installButton.style.display = 'none';
+                document.getElementById('iosInstallInstructions').style.display = 'none';
+                return true;
+            }
+
+            // Check if previously installed
+            const isInstalled = await getInstallState();
+            if (isInstalled) {
+                console.log('PWA Debug: Found installation record in IndexedDB');
+                status.textContent = 'Already installed on your device';
                 installButton.style.display = 'none';
                 document.getElementById('iosInstallInstructions').style.display = 'none';
                 return true;
@@ -250,6 +301,7 @@
         // When app is installed
         window.addEventListener('appinstalled', async (event) => {
             console.log('PWA Debug: App was installed');
+            await setInstallState(true);
             status.textContent = 'App was installed successfully';
             installButton.style.display = 'none';
             document.getElementById('iosInstallInstructions').style.display = 'none';
@@ -258,6 +310,10 @@
         // For iOS, detect when loaded from home screen
         window.addEventListener('load', async () => {
             if (isIOS()) {
+                if (window.navigator.standalone === true) {
+                    console.log('PWA Debug: Loaded from iOS home screen');
+                    await setInstallState(true);
+                }
                 await initializeInstallUI();
                 
                 // Re-check installation status periodically
