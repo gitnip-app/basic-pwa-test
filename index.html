@@ -72,16 +72,28 @@
             padding: 16px;
             margin-top: 20px;
             text-align: left;
+            position: relative;
         }
 
-        #iosInstallInstructions ol {
-            margin: 10px 0;
-            padding-left: 20px;
+        #iosInstallInstructions .dismiss-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #6c757d;
         }
 
-        #iosInstallInstructions li {
-            margin: 8px 0;
-            line-height: 1.4;
+        #iosInstallInstructions .dismiss-button:hover {
+            color: #343a40;
+        }
+
+        .subtle-note {
+            font-size: 0.9em;
+            color: #6c757d;
+            margin-top: 8px;
         }
 
         .icon-demo {
@@ -102,13 +114,14 @@
         
         <!-- iOS Installation Instructions -->
         <div id="iosInstallInstructions">
-            <h3>Install on iOS</h3>
+            <button class="dismiss-button" onclick="dismissInstructions()">×</button>
+            <h3>Quick Access</h3>
+            <p>Add this app to your home screen for the best experience:</p>
             <ol>
-                <li>Tap the Share button <span class="icon-demo">⎙</span> at the bottom of the screen</li>
-                <li>Scroll down and tap "Add to Home Screen" <span class="icon-demo">🏠</span></li>
-                <li>Tap "Add" in the top right</li>
+                <li>Tap the Share button <span class="icon-demo">⎙</span></li>
+                <li>Choose "Add to Home Screen" <span class="icon-demo">🏠</span></li>
             </ol>
-            <p>Once added, the app will appear on your home screen!</p>
+            <p class="subtle-note">Already installed? Open it from your home screen for full-screen access.</p>
         </div>
     </div>
 
@@ -186,82 +199,45 @@
 
         // Check if app is installed using getInstalledRelatedApps()
         async function checkInstalledStatus() {
-            try {
-                if ('getInstalledRelatedApps' in navigator) {
+            if ('getInstalledRelatedApps' in navigator) {
+                try {
                     const relatedApps = await navigator.getInstalledRelatedApps();
                     console.log('PWA Debug: Checking installed apps:', relatedApps);
-                    return relatedApps.length > 0;
+                    
+                    // Look for our PWA in the list of installed apps
+                    const isInstalled = relatedApps.some(app => 
+                        app.platform === 'webapp' && 
+                        app.url.includes('dazzling-tartufo-4d55f7.netlify.app/manifest.json')
+                    );
+                    
+                    if (isInstalled) {
+                        console.log('PWA Debug: Found our PWA in installed apps');
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('PWA Debug: Error checking installed apps:', error);
                 }
-            } catch (error) {
-                console.error('PWA Debug: Error checking installed apps:', error);
+            } else {
+                console.log('PWA Debug: getInstalledRelatedApps not supported');
             }
             return false;
         }
 
-        // Detect iOS
-        function isIOS() {
-            return [
-                'iPad Simulator',
-                'iPhone Simulator',
-                'iPod Simulator',
-                'iPad',
-                'iPhone',
-                'iPod'
-            ].includes(navigator.platform)
-            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
-        }
-
         // Check if running as installed PWA
         async function checkIfInstalled() {
-            // For iOS
-            if (isIOS()) {
-                // First check if running in standalone mode
-                if (window.navigator.standalone === true) {
-                    console.log('PWA Debug: Running as installed app on iOS');
-                    // Set install state when running from home screen
-                    await setInstallState(true);
-                    status.textContent = 'Running as installed app';
-                    installButton.style.display = 'none';
-                    document.getElementById('iosInstallInstructions').style.display = 'none';
-                    return true;
-                }
-
-                // Check if previously installed using IndexedDB
-                const isInstalled = await getInstallState();
-                if (isInstalled) {
-                    console.log('PWA Debug: Found installation record in IndexedDB');
-                    status.textContent = 'Already installed on your device';
-                    installButton.style.display = 'none';
-                    document.getElementById('iosInstallInstructions').style.display = 'none';
-                    return true;
-                }
-                return false;
-            }
-            
-            // For other platforms
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
-            if (isStandalone) {
-                console.log('PWA Debug: Running as installed app');
-                await setInstallState(true);
+            // First check if running in standalone mode
+            if (window.matchMedia('(display-mode: standalone)').matches || 
+                window.navigator.standalone === true) {
+                console.log('PWA Debug: Running in standalone mode');
                 status.textContent = 'Running as installed app';
                 installButton.style.display = 'none';
                 document.getElementById('iosInstallInstructions').style.display = 'none';
                 return true;
             }
 
-            // Check if previously installed
-            const isInstalled = await getInstallState();
+            // Then check if installed using getInstalledRelatedApps
+            const isInstalled = await checkInstalledStatus();
             if (isInstalled) {
-                console.log('PWA Debug: Found installation record in IndexedDB');
-                status.textContent = 'Already installed on your device';
-                installButton.style.display = 'none';
-                document.getElementById('iosInstallInstructions').style.display = 'none';
-                return true;
-            }
-
-            // Check if installed using manifest
-            const isAppInstalled = await checkInstalledStatus();
-            if (isAppInstalled) {
                 console.log('PWA Debug: App is installed');
                 status.textContent = 'Already installed on your device';
                 installButton.style.display = 'none';
@@ -272,15 +248,31 @@
             return false;
         }
 
+        // Dismiss instructions and remember the choice
+        function dismissInstructions() {
+            const instructions = document.getElementById('iosInstallInstructions');
+            instructions.style.display = 'none';
+            // Remember dismissal for 7 days
+            const dismissedUntil = Date.now() + (7 * 24 * 60 * 60 * 1000);
+            localStorage.setItem('installPromptDismissed', dismissedUntil);
+        }
+
         // Show appropriate installation UI
         function showInstallUI() {
             const iosInstructions = document.getElementById('iosInstallInstructions');
             
             if (isIOS()) {
+                // Check if user dismissed the prompt recently
+                const dismissedUntil = localStorage.getItem('installPromptDismissed');
+                if (dismissedUntil && Date.now() < parseInt(dismissedUntil)) {
+                    iosInstructions.style.display = 'none';
+                    return;
+                }
+
                 // On iOS, show manual instructions
                 installButton.style.display = 'none';
                 iosInstructions.style.display = 'block';
-                status.textContent = 'Ready to install';
+                status.textContent = 'Ready to use';
             } else {
                 // On other platforms, use the install button
                 iosInstructions.style.display = 'none';
@@ -301,29 +293,25 @@
         // When app is installed
         window.addEventListener('appinstalled', async (event) => {
             console.log('PWA Debug: App was installed');
-            await setInstallState(true);
             status.textContent = 'App was installed successfully';
             installButton.style.display = 'none';
             document.getElementById('iosInstallInstructions').style.display = 'none';
         });
 
-        // For iOS, detect when loaded from home screen
-        window.addEventListener('load', async () => {
-            if (isIOS()) {
-                if (window.navigator.standalone === true) {
-                    console.log('PWA Debug: Loaded from iOS home screen');
-                    await setInstallState(true);
-                }
-                await initializeInstallUI();
-                
-                // Re-check installation status periodically
-                setInterval(async () => {
-                    await checkIfInstalled();
-                }, 2000); // Check every 2 seconds
-            }
-        });
+        // Detect iOS
+        function isIOS() {
+            return [
+                'iPad Simulator',
+                'iPhone Simulator',
+                'iPod Simulator',
+                'iPad',
+                'iPhone',
+                'iPod'
+            ].includes(navigator.platform)
+            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        }
 
-        // Register service worker
+        // Register service worker and initialize UI
         if ('serviceWorker' in navigator) {
             console.log('PWA Debug: Service Worker is supported');
             window.addEventListener('load', async () => {
@@ -333,7 +321,7 @@
                     console.log('PWA Debug: ServiceWorker registration successful', registration);
                     
                     // Initialize UI after service worker is registered
-                    initializeInstallUI();
+                    await initializeInstallUI();
                 } catch (error) {
                     console.error('PWA Debug: ServiceWorker registration failed:', error);
                     status.textContent = 'Service Worker registration failed';
