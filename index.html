@@ -78,44 +78,59 @@
         const installButton = document.getElementById('installButton');
         let deferredPrompt;
 
+        // Debug logging
+        console.log('PWA Debug: Script started');
+        console.log('PWA Debug: Install button display -', installButton.style.display);
+
         // Register service worker
         if ('serviceWorker' in navigator) {
+            console.log('PWA Debug: Service Worker is supported');
             window.addEventListener('load', async () => {
                 try {
                     const registration = await navigator.serviceWorker.register('/sw.js');
-                    console.log('ServiceWorker registration successful');
+                    console.log('PWA Debug: ServiceWorker registration successful');
                     status.textContent = 'Ready to use';
                 } catch (error) {
-                    console.error('ServiceWorker registration failed:', error);
+                    console.error('PWA Debug: ServiceWorker registration failed:', error);
                     status.textContent = 'Service Worker registration failed';
                 }
             });
+        } else {
+            console.log('PWA Debug: Service Worker is NOT supported');
         }
 
         // Listen for beforeinstallprompt event
         window.addEventListener('beforeinstallprompt', (e) => {
+            console.log('PWA Debug: beforeinstallprompt event fired');
             // Prevent Chrome's automatic mini-infobar
             e.preventDefault();
             // Save the event for later
             deferredPrompt = e;
             // Show install button
             installButton.style.display = 'block';
+            console.log('PWA Debug: Install button shown');
             status.textContent = 'App can be installed';
         });
 
         // Handle install button click
         installButton.addEventListener('click', async () => {
-            if (!deferredPrompt) return;
+            console.log('PWA Debug: Install button clicked');
+            if (!deferredPrompt) {
+                console.log('PWA Debug: No deferred prompt available');
+                return;
+            }
             
             // Hide install button
             installButton.style.display = 'none';
+            console.log('PWA Debug: Install button hidden');
             
             // Show install prompt
             deferredPrompt.prompt();
+            console.log('PWA Debug: Install prompt shown');
             
             // Wait for user choice
             const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response: ${outcome}`);
+            console.log('PWA Debug: User response:', outcome);
             
             if (outcome === 'accepted') {
                 status.textContent = 'Thank you for installing!';
@@ -130,14 +145,18 @@
 
         // When app is installed
         window.addEventListener('appinstalled', (event) => {
-            console.log('App was installed');
+            console.log('PWA Debug: App was installed');
             status.textContent = 'App was installed successfully';
             installButton.style.display = 'none';
         });
 
         // Check if already running as installed PWA
-        if (window.matchMedia('(display-mode: standalone)').matches || 
-            window.navigator.standalone === true) {
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                           window.navigator.standalone === true;
+        console.log('PWA Debug: Is running standalone?', isStandalone);
+        
+        if (isStandalone) {
+            console.log('PWA Debug: Running as installed app');
             status.textContent = 'Running as installed app';
             installButton.style.display = 'none';
         }
