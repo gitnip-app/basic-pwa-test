@@ -63,6 +63,34 @@
         #installButton:hover {
             background: #357abd;
         }
+
+        #iosInstallInstructions {
+            display: none;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        #iosInstallInstructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+
+        #iosInstallInstructions li {
+            margin: 8px 0;
+            line-height: 1.4;
+        }
+
+        .icon-demo {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+            margin: 0 4px;
+        }
     </style>
 </head>
 <body>
@@ -71,6 +99,17 @@
         <p>This is a minimal PWA implementation.</p>
         <p id="status">Checking status...</p>
         <button id="installButton">Install App</button>
+        
+        <!-- iOS Installation Instructions -->
+        <div id="iosInstallInstructions">
+            <h3>Install on iOS</h3>
+            <ol>
+                <li>Tap the Share button <span class="icon-demo">⎙</span> at the bottom of the screen</li>
+                <li>Scroll down and tap "Add to Home Screen" <span class="icon-demo">🏠</span></li>
+                <li>Tap "Add" in the top right</li>
+            </ol>
+            <p>Once added, the app will appear on your home screen!</p>
+        </div>
     </div>
 
     <script>
@@ -90,6 +129,81 @@
         // Debug logging
         console.log('PWA Debug: Variables initialized');
 
+        // Check installation status
+        async function checkInstallationStatus() {
+            if ('getInstalledRelatedApps' in navigator) {
+                try {
+                    const relatedApps = await navigator.getInstalledRelatedApps();
+                    console.log('PWA Debug: Installed related apps:', relatedApps);
+                    if (relatedApps.length > 0) {
+                        console.log('PWA Debug: App is already installed');
+                        status.textContent = 'App is already installed';
+                        installButton.style.display = 'none';
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('PWA Debug: Error checking installed apps:', error);
+                }
+            }
+            return false;
+        }
+
+        // Detect iOS
+        function isIOS() {
+            return [
+                'iPad Simulator',
+                'iPhone Simulator',
+                'iPod Simulator',
+                'iPad',
+                'iPhone',
+                'iPod'
+            ].includes(navigator.platform)
+            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
+        }
+
+        // Show appropriate installation UI
+        function showInstallUI() {
+            const iosInstructions = document.getElementById('iosInstallInstructions');
+            
+            if (isIOS()) {
+                // On iOS, show manual instructions
+                installButton.style.display = 'none';
+                iosInstructions.style.display = 'block';
+                status.textContent = 'Ready to install';
+            } else {
+                // On other platforms, use the install button
+                iosInstructions.style.display = 'none';
+                if (!deferredPrompt) {
+                    installButton.style.display = 'block';
+                }
+            }
+        }
+
+        // Check if running as installed PWA
+        function checkIfInstalled() {
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                               window.navigator.standalone === true;
+            
+            if (isStandalone) {
+                console.log('PWA Debug: Running as installed app');
+                status.textContent = 'Running as installed app';
+                installButton.style.display = 'none';
+                if (document.getElementById('iosInstallInstructions')) {
+                    document.getElementById('iosInstallInstructions').style.display = 'none';
+                }
+                return true;
+            }
+            return false;
+        }
+
+        // Initialize installation UI
+        async function initializeInstallUI() {
+            if (!checkIfInstalled()) {
+                // Not installed, show appropriate UI
+                showInstallUI();
+            }
+        }
+
         // Register service worker
         if ('serviceWorker' in navigator) {
             console.log('PWA Debug: Service Worker is supported');
@@ -98,7 +212,9 @@
                     console.log('PWA Debug: Attempting to register service worker...');
                     const registration = await navigator.serviceWorker.register('/sw.js');
                     console.log('PWA Debug: ServiceWorker registration successful', registration);
-                    status.textContent = 'Ready to use';
+                    
+                    // Initialize UI after service worker is registered
+                    initializeInstallUI();
                 } catch (error) {
                     console.error('PWA Debug: ServiceWorker registration failed:', error);
                     status.textContent = 'Service Worker registration failed';
@@ -115,41 +231,39 @@
             e.preventDefault();
             // Save the event for later
             deferredPrompt = e;
-            // Show install button
-            installButton.style.display = 'block';
-            console.log('PWA Debug: Install button shown');
-            status.textContent = 'App can be installed';
+            // Show install button only if not already installed
+            checkInstallationStatus().then(isInstalled => {
+                if (!isInstalled) {
+                    installButton.style.display = 'block';
+                    status.textContent = 'App can be installed';
+                }
+            });
         });
 
         // Handle install button click
         installButton.addEventListener('click', async () => {
             console.log('PWA Debug: Install button clicked');
-            if (!deferredPrompt) {
-                console.log('PWA Debug: No deferred prompt available');
-                return;
-            }
-            
-            // Hide install button
-            installButton.style.display = 'none';
-            console.log('PWA Debug: Install button hidden');
-            
-            // Show install prompt
-            deferredPrompt.prompt();
-            console.log('PWA Debug: Install prompt shown');
-            
-            // Wait for user choice
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log('PWA Debug: User response:', outcome);
-            
-            if (outcome === 'accepted') {
-                status.textContent = 'Thank you for installing!';
+            if (deferredPrompt) {
+                // Use the deferred prompt
+                deferredPrompt.prompt();
+                console.log('PWA Debug: Install prompt shown');
+                
+                const { outcome } = await deferredPrompt.userChoice;
+                console.log('PWA Debug: User response:', outcome);
+                
+                if (outcome === 'accepted') {
+                    status.textContent = 'Thank you for installing!';
+                    installButton.style.display = 'none';
+                } else {
+                    status.textContent = 'App ready to install when you are';
+                }
+                
+                deferredPrompt = null;
             } else {
-                status.textContent = 'App ready to install when you are';
-                installButton.style.display = 'block';
+                // Manual installation instructions
+                console.log('PWA Debug: No deferred prompt, showing manual instructions');
+                status.textContent = 'To install: tap menu (⋮) then "Install app"';
             }
-            
-            // Clear the deferredPrompt
-            deferredPrompt = null;
         });
 
         // When app is installed
@@ -158,17 +272,6 @@
             status.textContent = 'App was installed successfully';
             installButton.style.display = 'none';
         });
-
-        // Check if already running as installed PWA
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                           window.navigator.standalone === true;
-        console.log('PWA Debug: Is running standalone?', isStandalone);
-        
-        if (isStandalone) {
-            console.log('PWA Debug: Running as installed app');
-            status.textContent = 'Running as installed app';
-            installButton.style.display = 'none';
-        }
 
         // Log window.navigator properties
         console.log('PWA Debug: Navigator properties:', {
