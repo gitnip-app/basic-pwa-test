@@ -181,16 +181,36 @@
 
         // Check if running as installed PWA
         function checkIfInstalled() {
-            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
-                               window.navigator.standalone === true;
+            // For iOS
+            if (isIOS()) {
+                // navigator.standalone is the iOS way to check if running as PWA
+                if (window.navigator.standalone === true) {
+                    console.log('PWA Debug: Running as installed app on iOS');
+                    status.textContent = 'Running as installed app';
+                    installButton.style.display = 'none';
+                    document.getElementById('iosInstallInstructions').style.display = 'none';
+                    return true;
+                }
+                
+                // Try to detect if installed by checking localStorage
+                const isInstalled = localStorage.getItem('pwa-installed');
+                if (isInstalled === 'true') {
+                    console.log('PWA Debug: Previously installed on iOS');
+                    status.textContent = 'Already installed on your device';
+                    installButton.style.display = 'none';
+                    document.getElementById('iosInstallInstructions').style.display = 'none';
+                    return true;
+                }
+                return false;
+            }
             
+            // For other platforms
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
             if (isStandalone) {
                 console.log('PWA Debug: Running as installed app');
                 status.textContent = 'Running as installed app';
                 installButton.style.display = 'none';
-                if (document.getElementById('iosInstallInstructions')) {
-                    document.getElementById('iosInstallInstructions').style.display = 'none';
-                }
+                document.getElementById('iosInstallInstructions').style.display = 'none';
                 return true;
             }
             return false;
@@ -199,10 +219,30 @@
         // Initialize installation UI
         async function initializeInstallUI() {
             if (!checkIfInstalled()) {
-                // Not installed, show appropriate UI
                 showInstallUI();
             }
         }
+
+        // When app is installed
+        window.addEventListener('appinstalled', (event) => {
+            console.log('PWA Debug: App was installed');
+            status.textContent = 'App was installed successfully';
+            installButton.style.display = 'none';
+            document.getElementById('iosInstallInstructions').style.display = 'none';
+            
+            // Mark as installed in localStorage for iOS
+            if (isIOS()) {
+                localStorage.setItem('pwa-installed', 'true');
+            }
+        });
+
+        // For iOS, we need to detect when the page is loaded from home screen
+        window.addEventListener('load', () => {
+            if (isIOS() && window.navigator.standalone === true) {
+                console.log('PWA Debug: Loaded from iOS home screen');
+                localStorage.setItem('pwa-installed', 'true');
+            }
+        });
 
         // Register service worker
         if ('serviceWorker' in navigator) {
@@ -264,13 +304,6 @@
                 console.log('PWA Debug: No deferred prompt, showing manual instructions');
                 status.textContent = 'To install: tap menu (⋮) then "Install app"';
             }
-        });
-
-        // When app is installed
-        window.addEventListener('appinstalled', (event) => {
-            console.log('PWA Debug: App was installed');
-            status.textContent = 'App was installed successfully';
-            installButton.style.display = 'none';
         });
 
         // Log window.navigator properties
