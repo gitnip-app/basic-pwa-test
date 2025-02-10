@@ -142,212 +142,68 @@
         // Debug logging
         console.log('PWA Debug: Variables initialized');
 
-        // IndexedDB setup
-        const dbName = 'PWAInstallDB';
-        const storeName = 'installState';
-        const installKey = 'isInstalled';
-
-        // Open IndexedDB
-        function openDB() {
-            return new Promise((resolve, reject) => {
-                const request = indexedDB.open(dbName, 1);
-                
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => resolve(request.result);
-                
-                request.onupgradeneeded = (event) => {
-                    const db = event.target.result;
-                    if (!db.objectStoreNames.contains(storeName)) {
-                        db.createObjectStore(storeName);
-                    }
-                };
-            });
-        }
-
-        // Set installation state
-        async function setInstallState(installed) {
-            try {
-                const db = await openDB();
-                const tx = db.transaction(storeName, 'readwrite');
-                const store = tx.objectStore(storeName);
-                await new Promise((resolve, reject) => {
-                    const request = store.put(installed, installKey);
-                    request.onsuccess = () => resolve();
-                    request.onerror = () => reject(request.error);
-                });
-            } catch (error) {
-                console.error('PWA Debug: Error setting install state:', error);
-            }
-        }
-
-        // Get installation state
-        async function getInstallState() {
-            try {
-                const db = await openDB();
-                const tx = db.transaction(storeName, 'readonly');
-                const store = tx.objectStore(storeName);
-                return new Promise((resolve, reject) => {
-                    const request = store.get(installKey);
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
-                });
-            } catch (error) {
-                console.error('PWA Debug: Error getting install state:', error);
-                return false;
-            }
-        }
-
-        // Check if app is installed using getInstalledRelatedApps()
-        async function checkInstalledStatus() {
-            if ('getInstalledRelatedApps' in navigator) {
-                try {
-                    const relatedApps = await navigator.getInstalledRelatedApps();
-                    console.log('PWA Debug: Checking installed apps:', relatedApps);
-                    
-                    // Look for our PWA in the list of installed apps
-                    const isInstalled = relatedApps.some(app => 
-                        app.platform === 'webapp' && 
-                        app.url.includes(window.location.hostname)
-                    );
-                    
-                    if (isInstalled) {
-                        console.log('PWA Debug: Found our PWA in installed apps');
-                        return true;
-                    }
-                } catch (error) {
-                    console.error('PWA Debug: Error checking installed apps:', error);
-                }
-            } else {
-                console.log('PWA Debug: getInstalledRelatedApps not supported');
-            }
-            return false;
-        }
-
         // Check if running as installed PWA
-        async function checkIfInstalled() {
-            // First check if running in standalone mode
+        function checkIfInstalled() {
+            // Only check if running in standalone mode
             if (window.matchMedia('(display-mode: standalone)').matches || 
                 window.navigator.standalone === true) {
                 console.log('PWA Debug: Running in standalone mode');
                 status.textContent = 'Running as installed app';
                 installButton.style.display = 'none';
                 document.getElementById('iosInstallInstructions').style.display = 'none';
-                
-                // Mark as installed in localStorage
-                localStorage.setItem('pwaInstalled', 'true');
                 return true;
             }
-
-            // Check URL parameters for PWA source
-            const urlParams = new URLSearchParams(window.location.search);
-            if (urlParams.get('source') === 'pwa') {
-                console.log('PWA Debug: Launched from home screen');
-                localStorage.setItem('pwaInstalled', 'true');
-                return true;
-            }
-
-            // Check if previously installed
-            if (localStorage.getItem('pwaInstalled') === 'true') {
-                console.log('PWA Debug: Found in localStorage as installed');
-                status.textContent = 'Already installed on your device';
-                installButton.style.display = 'none';
-                document.getElementById('iosInstallInstructions').style.display = 'none';
-                return true;
-            }
-
-            // Check if installed using getInstalledRelatedApps (for supported browsers)
-            if ('getInstalledRelatedApps' in navigator) {
-                try {
-                    const relatedApps = await navigator.getInstalledRelatedApps();
-                    console.log('PWA Debug: Checking installed apps:', relatedApps);
-                    const isInstalled = relatedApps.some(app => 
-                        app.platform === 'webapp' && 
-                        app.url.includes(window.location.hostname)
-                    );
-                    if (isInstalled) {
-                        console.log('PWA Debug: Found via getInstalledRelatedApps');
-                        localStorage.setItem('pwaInstalled', 'true');
-                        return true;
-                    }
-                } catch (error) {
-                    console.error('PWA Debug: Error checking installed apps:', error);
-                }
-            }
-
             return false;
         }
 
         // Initialize installation UI
-        async function initializeInstallUI() {
-            const installed = await checkIfInstalled();
-            if (!installed) {
-                showInstallUI();
+        function initializeInstallUI() {
+            // If already running as PWA, hide install UI
+            if (checkIfInstalled()) {
+                return;
+            }
+
+            // Check if user has dismissed the prompt
+            const dismissedUntil = localStorage.getItem('installPromptDismissedUntil');
+            if (dismissedUntil && parseInt(dismissedUntil) > Date.now()) {
+                console.log('PWA Debug: Install prompt was dismissed');
+                return;
+            }
+
+            // Show appropriate install UI
+            showInstallUI();
+        }
+
+        // Dismiss instructions and remember the choice
+        function dismissInstructions() {
+            // Hide the instructions
+            document.getElementById('iosInstallInstructions').style.display = 'none';
+            
+            // Remember the choice for 7 days
+            const dismissUntil = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days
+            localStorage.setItem('installPromptDismissedUntil', dismissUntil.toString());
+            
+            console.log('PWA Debug: Install prompt dismissed until', new Date(dismissUntil));
+        }
+
+        // Show appropriate install UI based on platform
+        function showInstallUI() {
+            if (isIOS()) {
+                // For iOS, show custom install instructions
+                document.getElementById('iosInstallInstructions').style.display = 'block';
+            } else if (deferredPrompt) {
+                // For other platforms, show install button if available
+                installButton.style.display = 'block';
             }
         }
 
         // When app is installed
-        window.addEventListener('appinstalled', async (event) => {
+        window.addEventListener('appinstalled', (event) => {
             console.log('PWA Debug: App was installed');
-            localStorage.setItem('pwaInstalled', 'true');
             status.textContent = 'App was installed successfully';
             installButton.style.display = 'none';
             document.getElementById('iosInstallInstructions').style.display = 'none';
         });
-
-        // Listen for display mode changes
-        window.matchMedia('(display-mode: standalone)').addEventListener('change', (evt) => {
-            if (evt.matches) {
-                console.log('PWA Debug: Display mode changed to standalone');
-                localStorage.setItem('pwaInstalled', 'true');
-            }
-        });
-
-        // Dismiss instructions and remember the choice
-        function dismissInstructions() {
-            const instructions = document.getElementById('iosInstallInstructions');
-            instructions.style.display = 'none';
-            // Remember dismissal for 7 days
-            const dismissedUntil = Date.now() + (7 * 24 * 60 * 60 * 1000);
-            localStorage.setItem('installPromptDismissed', dismissedUntil);
-        }
-
-        // Show appropriate installation UI
-        function showInstallUI() {
-            const iosInstructions = document.getElementById('iosInstallInstructions');
-            
-            if (isIOS()) {
-                // Check if user dismissed the prompt recently
-                const dismissedUntil = localStorage.getItem('installPromptDismissed');
-                if (dismissedUntil && Date.now() < parseInt(dismissedUntil)) {
-                    iosInstructions.style.display = 'none';
-                    return;
-                }
-
-                // On iOS, show manual instructions
-                installButton.style.display = 'none';
-                iosInstructions.style.display = 'block';
-                status.textContent = 'Ready to use';
-            } else {
-                // On other platforms, use the install button
-                iosInstructions.style.display = 'none';
-                if (!deferredPrompt) {
-                    installButton.style.display = 'block';
-                }
-            }
-        }
-
-        // Detect iOS
-        function isIOS() {
-            return [
-                'iPad Simulator',
-                'iPhone Simulator',
-                'iPod Simulator',
-                'iPad',
-                'iPhone',
-                'iPod'
-            ].includes(navigator.platform)
-            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
-        }
 
         // Register service worker and initialize UI
         if ('serviceWorker' in navigator) {
@@ -359,7 +215,7 @@
                     console.log('PWA Debug: ServiceWorker registration successful', registration);
                     
                     // Initialize UI after service worker is registered
-                    await initializeInstallUI();
+                    initializeInstallUI();
                 } catch (error) {
                     console.error('PWA Debug: ServiceWorker registration failed:', error);
                     status.textContent = 'Service Worker registration failed';
@@ -376,13 +232,6 @@
             e.preventDefault();
             // Save the event for later
             deferredPrompt = e;
-            // Show install button only if not already installed
-            checkIfInstalled().then(isInstalled => {
-                if (!isInstalled) {
-                    installButton.style.display = 'block';
-                    status.textContent = 'App can be installed';
-                }
-            });
         });
 
         // Handle install button click
@@ -411,23 +260,17 @@
             }
         });
 
-        // Log window.navigator properties
-        console.log('PWA Debug: Navigator properties:', {
-            serviceWorker: 'serviceWorker' in navigator,
-            standalone: window.navigator.standalone,
-            userAgent: window.navigator.userAgent
-        });
-
-        // Log if PWA is installable
-        if ('getInstalledRelatedApps' in navigator) {
-            console.log('PWA Debug: getInstalledRelatedApps is supported');
-            navigator.getInstalledRelatedApps().then(apps => {
-                console.log('PWA Debug: Installed related apps:', apps);
-            }).catch(error => {
-                console.error('PWA Debug: Error checking installed apps:', error);
-            });
-        } else {
-            console.log('PWA Debug: getInstalledRelatedApps is NOT supported');
+        // Detect iOS
+        function isIOS() {
+            return [
+                'iPad Simulator',
+                'iPhone Simulator',
+                'iPod Simulator',
+                'iPad',
+                'iPhone',
+                'iPod'
+            ].includes(navigator.platform)
+            || (navigator.userAgent.includes("Mac") && "ontouchend" in document);
         }
     </script>
 </body>
